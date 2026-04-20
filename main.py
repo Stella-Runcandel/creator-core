@@ -109,6 +109,17 @@ def run_fetch() -> int:
         upsert_playlist_videos(conn, mappings)
         insert_creator_comments(conn, creator_comments)
 
+        print('Refreshing playlists...')
+
+        playlists = get_channel_playlists(api_key, channel_id)
+
+        mappings = []
+        for playlist in playlists:
+            pid = playlist['playlist_id']
+            mappings.extend(get_playlist_mappings(api_key, pid))
+        upsert_playlists(conn, playlists)
+        upsert_playlist_videos(conn, mappings)
+
         print('Fetch complete.')
         print(f'Videos processed: {len(video_details)}')
         print(f'Playlists processed: {len(playlists)}')
@@ -145,6 +156,8 @@ def run_update() -> int:
 
         uploads_playlist_id = get_uploads_playlist_id(api_key, channel_id)
         upload_items = get_playlist_video_ids(api_key, uploads_playlist_id)
+        print("First API video:", upload_items[0]["video_id"])
+        print("Is first video in DB?", upload_items[0]["video_id"] in existing_video_ids)
 
         new_video_ids: list[str] = []
         for item in upload_items:
@@ -178,6 +191,7 @@ def run_update() -> int:
         return 1
     finally:
         conn.close()
+        
 
 
 def run_refresh() -> int:

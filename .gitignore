@@ -7,3 +7,27 @@ __pycache__/
 *.pyc
 # VS Code (optional)
 .vscode/
+.xlsx
+.db
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Excel exports
+*.xlsx
+
+# OS junk
+.DS_Store
+Thumbs.db
+# IDE
+.idea/
