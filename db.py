@@ -134,3 +134,23 @@ def get_status_counts(conn: sqlite3.Connection) -> dict:
         'playlists': playlists,
         'comments': comments,
     }
+
+
+def get_all_video_ids(conn: sqlite3.Connection) -> set[str]:
+    cursor = conn.cursor()
+    rows = cursor.execute('SELECT video_id FROM videos').fetchall()
+    return {row[0] for row in rows}
+
+
+def get_latest_video_ids(conn: sqlite3.Connection, limit: int) -> list[str]:
+    cursor = conn.cursor()
+    rows = cursor.execute(
+        '''
+        SELECT video_id
+        FROM videos
+        ORDER BY published_at DESC
+        LIMIT ?
+        ''',
+        (max(1, int(limit)),),
+    ).fetchall()
+    return [row[0] for row in rows]

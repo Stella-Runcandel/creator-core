@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import sys
 
-from config import load_config, save_env_value, validate_fetch_config
+from config import get_refresh_video_limit, load_config, save_env_value, validate_fetch_config
 from db import (
+    get_all_video_ids,
     get_connection,
+    get_latest_video_ids,
     get_status_counts,
     init_db,
     insert_creator_comments,
@@ -28,6 +30,8 @@ def print_help() -> None:
     print('Usage:')
     print('  python main.py setup')
     print('  python main.py fetch')
+    print('  python main.py update')
+    print('  python main.py refresh')
     print('  python main.py status')
 
 
@@ -118,6 +122,99 @@ def run_fetch() -> int:
         conn.close()
 
 
+def run_update() -> int:
+    cfg = load_config()
+    ok, errors = validate_fetch_config(cfg)
+    if not ok:
+        for err in errors:
+            print(f'- {err}')
+        return 1
+
+    api_key = cfg['YOUTUBE_API_KEY']
+    channel_id = cfg['CHANNEL_ID']
+    db_path = cfg['DB_PATH'] or 'creator_core.db'
+
+    conn = get_connection(db_path)
+    init_db(conn)
+
+    try:
+        existing_video_ids = get_all_video_ids(conn)
+        if not existing_video_ids:
+            print('Database is empty. Falling back to full fetch.')
+            return run_fetch()
+
+        uploads_playlist_id = get_uploads_playlist_id(api_key, channel_id)
+        upload_items = get_playlist_video_ids(api_key, uploads_playlist_id)
+
+        new_video_ids: list[str] = []
+        for item in upload_items:
+            video_id = item['video_id']
+            if video_id in existing_video_ids:
+                break
+            new_video_ids.append(video_id)
+
+        if not new_video_ids:
+            print('No new videos found')
+            return 0
+
+        print(f'Fetching details for {len(new_video_ids)} new videos...')
+        video_details = get_video_details(api_key, new_video_ids)
+
+        print('Fetching creator comments for new videos...')
+        creator_comments = []
+        for video_id in new_video_ids:
+            creator_comments.extend(get_creator_comments(api_key, video_id, channel_id))
+
+        upsert_videos(conn, video_details)
+        insert_creator_comments(conn, creator_comments)
+
+        print('Update complete.')
+        print(f'New videos: {len(new_video_ids)}')
+        print(f'Comments fetched: {len(creator_comments)}')
+        print('Incremental logic used: yes')
+        return 0
+    except YouTubeAPIError as exc:
+        print(f'YouTube API error: {exc}')
+        return 1
+    finally:
+        conn.close()
+
+
+def run_refresh() -> int:
+    cfg = load_config()
+    ok, errors = validate_fetch_config(cfg)
+    if not ok:
+        for err in errors:
+            print(f'- {err}')
+        return 1
+
+    api_key = cfg['YOUTUBE_API_KEY']
+    db_path = cfg['DB_PATH'] or 'creator_core.db'
+    refresh_limit = get_refresh_video_limit(cfg)
+
+    conn = get_connection(db_path)
+    init_db(conn)
+
+    try:
+        latest_video_ids = get_latest_video_ids(conn, refresh_limit)
+        if not latest_video_ids:
+            print('No videos available to refresh.')
+            print('Videos refreshed: 0')
+            return 0
+
+        video_details = get_video_details(api_key, latest_video_ids)
+        upsert_videos(conn, video_details)
+
+        print('Refresh complete.')
+        print(f'Videos refreshed: {len(video_details)}')
+        return 0
+    except YouTubeAPIError as exc:
+        print(f'YouTube API error: {exc}')
+        return 1
+    finally:
+        conn.close()
+
+
 def run_status() -> int:
     cfg = load_config()
     db_path = cfg['DB_PATH'] or 'creator_core.db'
@@ -146,6 +243,10 @@ def main() -> int:
         return run_setup()
     if command == 'fetch':
         return run_fetch()
+    if command == 'update':
+        return run_update()
+    if command == 'refresh':
+        return run_refresh()
     if command == 'status':
         return run_status()
 

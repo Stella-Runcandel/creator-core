@@ -16,7 +16,17 @@ def load_config() -> Dict[str, Optional[str]]:
         'YOUTUBE_API_KEY': os.getenv('YOUTUBE_API_KEY'),
         'CHANNEL_ID': os.getenv('CHANNEL_ID'),
         'DB_PATH': os.getenv('DB_PATH', 'creator_core.db'),
+        'REFRESH_VIDEO_LIMIT': os.getenv('REFRESH_VIDEO_LIMIT', '50'),
     }
+
+
+def get_refresh_video_limit(cfg: Dict[str, Optional[str]]) -> int:
+    raw_limit = cfg.get('REFRESH_VIDEO_LIMIT')
+    try:
+        limit = int(raw_limit or 50)
+    except (TypeError, ValueError):
+        limit = 50
+    return max(1, limit)
 
 
 def ensure_env_file_exists() -> None:
