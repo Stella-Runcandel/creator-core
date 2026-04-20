@@ -1,0 +1,16 @@
+import sqlite3
+
+conn = sqlite3.connect("creator_core.db")
+cursor = conn.cursor()
+
+video_id = "pk4Db_WA7wg"  # your latest video
+
+print("Playlist mappings for this video:")
+rows = cursor.execute(
+    "SELECT * FROM playlist_videos WHERE video_id = ?",
+    (video_id,)
+).fetchall()
+
+print(rows)
+
+conn.close()

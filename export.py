@@ -32,6 +32,12 @@ def export_to_excel() -> None:
         playlist_videos = pd.read_sql_query("SELECT * FROM playlist_videos", conn)
         comments = pd.read_sql_query("SELECT * FROM creator_comments", conn)
 
+        # --- FIX: ensure IDs match properly ---
+        videos["video_id"] = videos["video_id"].astype(str).str.strip()
+        playlist_videos["video_id"] = playlist_videos["video_id"].astype(str).str.strip()
+        playlist_videos["playlist_id"] = playlist_videos["playlist_id"].astype(str).str.strip()
+        playlists["playlist_id"] = playlists["playlist_id"].astype(str).str.strip()
+
         # Sort raw sheets newest-first where a date exists
         videos = _sort_desc(videos, "published_at")
         comments = _sort_desc(comments, "published_at")
